@@ -18,7 +18,7 @@ Hover any video for a control bar: play/pause, scrub bar with time, volume and m
 | --- | --- |
 | Space / K | Play / pause |
 | J / L | Back / forward 10 s |
-| ← / → | Back / forward 5 s (in Stories, arrows keep switching stories) |
+| ← / → | Back / forward 5 s. In carousels they change slide, and in Stories they switch stories. |
 | ↑ / ↓ | Volume |
 | M | Mute |
 | F | Fullscreen |
@@ -27,7 +27,7 @@ Hover any video for a control bar: play/pause, scrub bar with time, volume and m
 | 0–9 | Jump to 0–90 % |
 | , / . | Frame step (when paused) |
 | T | Copy link + transcript |
-| N or Shift+↓ | Next Reel / post |
+| N or Shift+↓ | Next Reel / post (feed and Reels; Instagram's own arrows handle a single post) |
 | P or Shift+↑ | Previous Reel / post |
 
 Shortcuts are ignored while typing in comments, search or DMs.

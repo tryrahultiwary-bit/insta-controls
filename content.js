@@ -100,11 +100,46 @@
 
   // ---------- helpers ----------
   const stories = () => location.pathname.startsWith('/stories/');
-  function visibleArea(v) {
-    const r = v.getBoundingClientRect();
-    const w = Math.min(r.right, innerWidth) - Math.max(r.left, 0), h = Math.min(r.bottom, innerHeight) - Math.max(r.top, 0);
-    return w > 0 && h > 0 ? w * h : 0;
+  // Ancestors that clip the video (carousel tracks, scrollers). Cached briefly: walked on every frame otherwise.
+  const clipCache = new WeakMap();
+  function clippers(v) {
+    const c = clipCache.get(v);
+    if (c && performance.now() - c.t < 1000) return c.els;
+    const els = [];
+    for (let e = v.parentElement; e && e !== document.documentElement; e = e.parentElement) {
+      const cs = getComputedStyle(e);
+      if (cs.overflowX !== 'visible' || cs.overflowY !== 'visible') els.push(e);
+    }
+    clipCache.set(v, { t: performance.now(), els });
+    return els;
   }
+  // The part of the video actually on screen: its rect cut by the viewport and every clipping ancestor.
+  // A video on another carousel slide has a real rect, but it's clipped to nothing.
+  function visibleRect(v) {
+    const r = v.getBoundingClientRect();
+    let l = Math.max(r.left, 0), t = Math.max(r.top, 0), rt = Math.min(r.right, innerWidth), b = Math.min(r.bottom, innerHeight);
+    for (const e of clippers(v)) {
+      const c = e.getBoundingClientRect();
+      l = Math.max(l, c.left); t = Math.max(t, c.top); rt = Math.min(rt, c.right); b = Math.min(b, c.bottom);
+    }
+    return rt - l > 1 && b - t > 1 ? { left: l, top: t, right: rt, bottom: b, width: rt - l, height: b - t } : null;
+  }
+  function visibleArea(v) {
+    const r = visibleRect(v);
+    return r ? r.width * r.height : 0;
+  }
+  // Click the carousel's own arrow. English labels only; elsewhere arrows fall back to seeking.
+  function slide(v, dir) {
+    const label = dir > 0 ? 'Next' : 'Go back';
+    for (let e = v.closest('ul'), i = 0; e && i < 8; e = e.parentElement, i++) {
+      const b = e.querySelector(`button[aria-label="${label}"]`);
+      if (b) { b.click(); return true; }
+    }
+    return false;
+  }
+  const carousel = v => !!v.closest('li')?.parentElement?.querySelector(':scope > li ~ li');
+  // Single post / Reel page or the post dialog: Instagram has its own next/previous there.
+  const singlePost = v => !!v.closest('[role="dialog"]') || stories() || /^\/(?:[\w.]+\/)?(p|reel|tv)\//.test(location.pathname);
   function live() {
     const out = [];
     for (const v of videos) if (v.isConnected) out.push(v); else videos.delete(v);
@@ -124,8 +159,8 @@
   function videoAt(x, y) {
     let hit = null;
     for (const v of live()) {
-      const r = v.getBoundingClientRect();
-      if (r.width < 120 || r.height < 80 || x < r.left || x > r.right || y < r.top || y > r.bottom) continue;
+      const full = v.getBoundingClientRect(), r = visibleRect(v);
+      if (full.width < 120 || full.height < 80 || !r || x < r.left || x > r.right || y < r.top || y > r.bottom) continue;
       if (getComputedStyle(v).visibility === 'hidden' || covered(v, x, y)) continue;
       if (!hit || (hit.paused && !v.paused)) hit = v;
     }
@@ -296,6 +331,7 @@
     .nav { position: absolute; right: 10px; bottom: var(--mid, 50%); transform: translateY(50%); display: flex; flex-direction: column; gap: 8px; }
     .nav button { width: 40px; height: 40px; border-radius: 50%; background: rgba(0,0,0,.4); backdrop-filter: blur(10px); }
     .nav button:hover { background: rgba(0,0,0,.6); }
+    .nonav .nav { display: none; }
     @container (max-width: 320px) { .time, .vol input { display: none; } }
     @container (max-width: 200px) { .nav, .pip, .loop, .rate { display: none; } }
     .toast { position: fixed; transform: translate(-50%, -50%) scale(.9); padding: 9px 16px; border-radius: 14px;
@@ -358,10 +394,11 @@
     raf = requestAnimationFrame(loop);
   }
   function place() {
-    const r = cur.getBoundingClientRect(), bottom = Math.min(r.bottom, innerHeight);
+    const r = visibleRect(cur);
     bar.style.left = r.left + 'px'; bar.style.width = r.width + 'px';
-    bar.style.top = 'auto'; bar.style.bottom = (innerHeight - bottom) + 'px';
-    bar.style.setProperty('--mid', (bottom - Math.max(r.top, 0)) / 2 + 'px');
+    bar.style.top = 'auto'; bar.style.bottom = (innerHeight - r.bottom) + 'px';
+    bar.style.setProperty('--mid', r.height / 2 + 'px');
+    bar.classList.toggle('nonav', singlePost(cur) || carousel(cur)); // carousels: keep their own arrows clickable
   }
   function render() {
     const v = cur;
@@ -384,10 +421,10 @@
   function toastAt(v, text, ms = 650, spin = false) {
     if (!v) return;
     toast.classList.toggle('busy', spin);
-    const r = v.getBoundingClientRect();
+    const r = visibleRect(v) || v.getBoundingClientRect();
     toast.textContent = text;
-    toast.style.left = (Math.max(r.left, 0) + Math.min(r.right, innerWidth)) / 2 + 'px';
-    toast.style.top = (Math.max(r.top, 0) + Math.min(r.bottom, innerHeight)) / 2 + 'px';
+    toast.style.left = (r.left + r.right) / 2 + 'px';
+    toast.style.top = (r.top + r.bottom) / 2 + 'px';
     toast.classList.add('on');
     clearTimeout(toastT);
     if (ms) toastT = setTimeout(() => toast.classList.remove('on'), ms);
@@ -463,12 +500,16 @@
       case ' ': case 'k': togglePlay(v); break;
       case 'j': seekBy(v, -10); break;
       case 'l': seekBy(v, 10); break;
-      case 'ArrowLeft': if (stories() && !ours) return; seekBy(v, -5); break;
-      case 'ArrowRight': if (stories() && !ours) return; seekBy(v, 5); break;
-      case 'ArrowUp': if (e.shiftKey) go(-1); else setVol(v, (v.muted ? 0 : v.volume) + 0.05); break;
-      case 'ArrowDown': if (e.shiftKey) go(1); else setVol(v, (v.muted ? 0 : v.volume) - 0.05); break;
-      case 'n': go(1); break;
-      case 'p': go(-1); break;
+      case 'ArrowLeft': case 'ArrowRight': {
+        if (stories() && !ours) return; // Stories: arrows switch stories
+        const dir = k === 'ArrowRight' ? 1 : -1;
+        if (!ours && carousel(v) && slide(v, dir)) break; // carousels: arrows change slide (J/L still seek)
+        seekBy(v, 5 * dir); break;
+      }
+      case 'ArrowUp': if (e.shiftKey) { if (singlePost(v)) return; go(-1); } else setVol(v, (v.muted ? 0 : v.volume) + 0.05); break;
+      case 'ArrowDown': if (e.shiftKey) { if (singlePost(v)) return; go(1); } else setVol(v, (v.muted ? 0 : v.volume) - 0.05); break;
+      case 'n': if (singlePost(v)) return; go(1); break;
+      case 'p': if (singlePost(v)) return; go(-1); break;
       case 'm': toggleMute(v); break;
       case 'f': fullscreen(v); break;
       case 'i': pip(v); break;
