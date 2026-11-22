@@ -1,0 +1,59 @@
+{
+  "manifest_version": 3,
+  "name": "Insta Controls",
+  "version": "1.1",
+  "description": "YouTube-style video controls and keyboard shortcuts for Instagram Reels, posts and Stories.",
+  "permissions": [
+    "storage",
+    "nativeMessaging",
+    "cookies",
+    "clipboardWrite"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.instagram.com/*"
+      ],
+      "js": [
+        "sniff.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://www.instagram.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Insta Controls",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "host_permissions": [
+    "https://www.instagram.com/*",
+    "https://*.fbcdn.net/*",
+    "https://*.cdninstagram.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4v69c2VdCH/ecmElP8+U3bAJnHCWSfLf65oI4F/DF8giITBkXwoeW+6Ty6n1npJEn8IwIM0cIGmTdrDu+qYG2FJph1TGZopyL/KqXqO8b74y47MRw1jJT5JXKUc40yj3BfdmdE6TkiyNwNeJR8zBXLImwfDV1dxOANxDqVrvjQFjMscFw3P6SiyN8uK7VRsk47yv2LLNsWTjSLpipDFUPAj5t/mMxuGbg1RlcMfB21Ul+icQUfpxHsIdjAFeomqUeGG1Sxyw4dAc9pPPC2vzt3IFBIpoeeUdrte7hp68Mv0aFmrCOrkkoZzJ9UCwbzgPG0KGD81tijqmjOuwSNJSvQIDAQAB"
+}

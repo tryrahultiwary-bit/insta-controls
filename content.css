@@ -1,0 +1,6 @@
+/* Fullscreen container (the video's parent): black backdrop, whole video visible. */
+:fullscreen:has(> video) { background: #000 !important; }
+:fullscreen > video {
+  width: 100% !important; height: 100% !important; max-width: none !important; max-height: none !important;
+  object-fit: contain !important; position: absolute !important; inset: 0 !important;
+}
